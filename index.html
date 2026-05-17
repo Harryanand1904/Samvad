@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="mr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#8B5319">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="मराठी वाचा">
+<title>मराठी वाचा</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:           #FDF6EC;
+  --surface:      #FFFBF4;
+  --border:       #E8D5B0;
+  --accent:       #C17A2E;
+  --accent-deep:  #8B5319;
+  --accent-light: #F5E4C8;
+  --text-primary: #2D1F0A;
+  --text-secondary:#6B4E26;
+  --text-muted:   #A0845C;
+  --red:          #C0392B;
+  --red-bg:       #FADBD8;
+  --green:        #1D6B3C;
+  --green-bg:     #D5F0E2;
+  --yellow:       #7A5110;
+  --yellow-bg:    #FFF9EC;
+  --yellow-border:#F0C96C;
+  --fs:           22px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+html, body {
+  height: 100%; height: 100dvh;
+  overflow: hidden;
+  font-family: 'Noto Sans Devanagari', serif;
+  background: var(--bg);
+  color: var(--text-primary);
+}
+
+/* LANDSCAPE GUARD */
+#landscape-guard {
+  display: none;
+  position: fixed; inset: 0; z-index: 9999;
+  background: var(--accent-deep);
+  flex-direction: column; align-items: center; justify-content: center;
+  gap: 18px; color: #fff; text-align: center; padding: 32px;
+}
+#landscape-guard h2 { font-size: 20px; font-weight: 700; }
+#landscape-guard p  { font-size: 14px; opacity: 0.8; line-height: 1.6; }
+@media (orientation: landscape) and (max-height: 500px) {
+  #landscape-guard { display: flex; }
+}
+
+/* APP */
+.app {
+  display: flex; flex-direction: column;
+  height: 100%; height: 100dvh;
+  max-width: 480px; margin: 0 auto;
+}
+
+/* HEADER */
+.hdr {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: calc(10px + env(safe-area-inset-top)) 16px 10px;
+  background: var(--surface);
+  border-bottom: 1.5px solid var(--border);
+  flex-shrink: 0;
+}
+.hdr-title { font-size: 20px; font-weight: 700; color: var(--accent-deep); line-height: 1; }
+.hdr-sub   { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+.om        { font-size: 26px; color: var(--accent); opacity: 0.65; user-select: none; }
+
+/* PERMISSION SCREEN — shown before mic is granted */
+#perm-screen {
+  flex: 1; display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 32px 24px; gap: 20px; text-align: center;
+  background: var(--bg);
+}
+#perm-screen h2  { font-size: 20px; font-weight: 700; color: var(--accent-deep); line-height: 1.4; }
+#perm-screen p   { font-size: 15px; color: var(--text-secondary); line-height: 1.7; }
+
+.perm-icon {
+  width: 80px; height: 80px; border-radius: 50%;
+  background: var(--accent-light); border: 2px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--accent);
+}
+
+.perm-btn {
+  width: 100%; max-width: 280px;
+  padding: 16px; border-radius: 12px; border: none;
+  background: var(--accent); color: #fff;
+  font-size: 17px; font-weight: 700;
+  font-family: inherit; cursor: pointer;
+  box-shadow: 0 4px 16px rgba(193,122,46,0.35);
+  touch-action: manipulation;
+  transition: background 0.15s, transform 0.12s;
+}
+.perm-btn:active { transform: scale(0.97); background: var(--accent-deep); }
+
+/* DIAG STRIP */
+#diag-strip {
+  display: none;
+  flex-direction: column; gap: 0;
+  border-top: 1.5px solid var(--border);
+  flex-shrink: 0;
+}
+#diag-strip.show { display: flex; }
+
+.diag-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 16px;
+  font-size: 12px; color: var(--text-secondary);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+.diag-row:last-child { border-bottom: none; }
+.diag-badge {
+  font-size: 11px; font-weight: 700; padding: 2px 8px;
+  border-radius: 999px; flex-shrink: 0;
+}
+.ok   { background: var(--green-bg); color: var(--green); }
+.warn { background: var(--yellow-bg); color: var(--yellow); border: 1px solid var(--yellow-border); }
+.fail { background: var(--red-bg); color: var(--red); }
+
+.diag-toggle {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 7px 16px;
+  font-size: 11px; color: var(--text-muted);
+  background: var(--surface); border: none; border-top: 1.5px solid var(--border);
+  width: 100%; cursor: pointer; font-family: inherit;
+  touch-action: manipulation; flex-shrink: 0;
+}
+
+/* MAIN UI (hidden until mic ready) */
+#main-ui {
+  display: none; flex-direction: column;
+  flex: 1; overflow: hidden;
+}
+#main-ui.show { display: flex; }
+
+/* ALERT BANNER */
+.alert-banner {
+  display: none; flex-shrink: 0;
+  padding: 10px 16px; gap: 8px; align-items: flex-start;
+  font-size: 13px; line-height: 1.5;
+}
+.alert-banner.show { display: flex; }
+.alert-banner.warn { background: var(--yellow-bg); color: var(--yellow); border-bottom: 1.5px solid var(--yellow-border); }
+.alert-banner.err  { background: var(--red-bg);    color: var(--red);    border-bottom: 1.5px solid #f0a9a4; }
+
+/* MIC BAR */
+.mic-bar {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 16px;
+  background: var(--surface);
+  border-bottom: 1.5px solid var(--border);
+  flex-shrink: 0;
+}
+
+.mic-btn {
+  width: 56px; height: 56px; border-radius: 50%; border: none;
+  background: var(--accent); color: #fff;
+  cursor: pointer; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 3px 12px rgba(193,122,46,0.38);
+  transition: background 0.18s, transform 0.12s;
+  outline: none; touch-action: manipulation;
+}
+.mic-btn:active { transform: scale(0.92); }
+.mic-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.mic-btn.recording {
+  background: var(--red);
+  box-shadow: 0 3px 12px rgba(192,57,43,0.4);
+  animation: pulse 1.4s infinite;
+}
+@keyframes pulse {
+  0%   { box-shadow: 0 0 0 0    rgba(192,57,43,0.45); }
+  60%  { box-shadow: 0 0 0 12px rgba(192,57,43,0); }
+  100% { box-shadow: 0 0 0 0    rgba(192,57,43,0); }
+}
+
+.status-block { flex: 1; min-width: 0; }
+.status-pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 12px; border-radius: 999px;
+  font-size: 13px; font-weight: 500;
+  background: var(--accent-light); color: var(--accent-deep);
+  border: 1px solid var(--border);
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  transition: all 0.2s;
+}
+.status-pill.active  { background: var(--red-bg);   color: var(--red);   border-color: #f0a9a4; }
+.status-pill.success { background: var(--green-bg); color: var(--green); border-color: #9dcfb6; }
+.status-pill.warn    { background: var(--yellow-bg); color: var(--yellow); border-color: var(--yellow-border); }
+
+.dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+.dot.blink { animation: blink 1s infinite; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.15} }
+.mic-hint { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+
+/* TEXT AREA */
+.text-wrap {
+  flex: 1; display: flex; flex-direction: column;
+  overflow: hidden; background: var(--surface);
+}
+.text-toolbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 7px 14px;
+  background: var(--accent-light);
+  border-bottom: 1.5px solid var(--border);
+  flex-shrink: 0;
+}
+.tbar-label { font-size: 11px; font-weight: 700; color: var(--accent-deep); text-transform: uppercase; letter-spacing: 0.08em; }
+.tbar-btns  { display: flex; gap: 6px; }
+.tbtn {
+  display: flex; align-items: center; gap: 5px;
+  padding: 5px 11px;
+  border: 1.5px solid var(--border); border-radius: 7px;
+  background: none; font-size: 12px; color: var(--text-secondary);
+  cursor: pointer; font-family: inherit;
+  touch-action: manipulation; transition: background 0.15s;
+}
+.tbtn:active        { background: var(--accent-light); }
+.tbtn.danger:active { background: var(--red-bg); color: var(--red); }
+
+#output-text {
+  flex: 1; padding: 16px;
+  font-size: var(--fs); line-height: 1.9;
+  color: var(--text-primary);
+  font-family: 'Noto Sans Devanagari', serif;
+  white-space: pre-wrap; word-break: break-word;
+  overflow-y: auto; outline: none;
+  -webkit-overflow-scrolling: touch;
+  transition: font-size 0.18s;
+}
+#output-text:empty::before {
+  content: 'येथे भाषण मजकूर दिसेल…';
+  color: var(--text-muted); font-style: italic;
+}
+#interim-text {
+  padding: 0 16px 10px;
+  font-size: calc(var(--fs) * 0.82);
+  color: var(--text-muted); font-style: italic;
+  min-height: 24px; flex-shrink: 0;
+  font-family: 'Noto Sans Devanagari', serif;
+  transition: font-size 0.18s;
+}
+
+/* FONT BAR */
+.font-bar {
+  display: flex; align-items: center; gap: 7px;
+  padding: 8px 14px calc(8px + env(safe-area-inset-bottom));
+  background: var(--surface);
+  border-top: 1.5px solid var(--border);
+  flex-shrink: 0;
+}
+.font-bar-label { font-size: 11px; color: var(--text-muted); white-space: nowrap; flex-shrink: 0; }
+.fs-btn {
+  border: 1.5px solid var(--border); border-radius: 7px;
+  background: var(--bg); color: var(--text-secondary);
+  cursor: pointer; font-weight: 600;
+  padding: 5px 9px; font-family: inherit;
+  white-space: nowrap; font-size: 12px;
+  touch-action: manipulation; transition: background 0.15s;
+}
+.fs-btn:active, .fs-btn.active {
+  background: var(--accent); color: #fff; border-color: var(--accent-deep);
+}
+.fs-slider-row { flex: 1; display: flex; align-items: center; gap: 6px; min-width: 0; }
+.fs-slider-row input[type=range] {
+  flex: 1; min-width: 0; accent-color: var(--accent); height: 4px; cursor: pointer;
+}
+.fs-val { font-size: 12px; font-weight: 600; color: var(--accent-deep); min-width: 28px; text-align: right; flex-shrink: 0; }
+</style>
+</head>
+<body>
+
+<!-- Landscape guard -->
+<div id="landscape-guard" role="alert">
+  <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="2" y="7" width="20" height="10" rx="2"/>
+    <path d="M7 7V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v2"/>
+  </svg>
+  <h2>फोन उभा करा</h2>
+  <p>हे ॲप फक्त उभ्या स्थितीत काम करते.<br>कृपया फोन सरळ धरा.</p>
+</div>
+
+<div class="app">
+
+  <!-- Header (always visible) -->
+  <header class="hdr">
+    <div>
+      <div class="hdr-title">मराठी वाचा</div>
+      <div class="hdr-sub">बोलून टाइप करा · Speech to Text</div>
+    </div>
+    <div class="om" aria-hidden="true">ॐ</div>
+  </header>
+
+  <!-- ── PERMISSION SCREEN ───────────────── -->
+  <div id="perm-screen">
+    <div class="perm-icon">
+      <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+        <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+        <line x1="12" y1="19" x2="12" y2="23"/>
+        <line x1="8" y1="23" x2="16" y2="23"/>
+      </svg>
+    </div>
+    <h2>मायक्रोफोन परवानगी द्या</h2>
+    <p>मराठीत बोलण्यासाठी या ॲपला आपल्या मायक्रोफोनची परवानगी आवश्यक आहे. खालील बटण दाबा आणि "Allow" निवडा.</p>
+    <button class="perm-btn" id="perm-btn">
+      🎙️ परवानगी द्या आणि सुरू करा
+    </button>
+    <div id="perm-error" style="display:none; color:var(--red); font-size:13px; line-height:1.6; max-width:280px;"></div>
+  </div>
+
+  <!-- ── DIAGNOSTICS (collapsible) ──────── -->
+  <button class="diag-toggle" id="diag-toggle" aria-expanded="false">
+    ⚙️ तपासणी माहिती पहा
+  </button>
+  <div id="diag-strip" role="region" aria-label="System diagnostics">
+    <div class="diag-row"><span class="diag-badge" id="d-https">…</span> HTTPS / सुरक्षित कनेक्शन</div>
+    <div class="diag-row"><span class="diag-badge" id="d-api">…</span>   Speech Recognition API</div>
+    <div class="diag-row"><span class="diag-badge" id="d-media">…</span> MediaDevices API</div>
+    <div class="diag-row"><span class="diag-badge" id="d-mic">…</span>   मायक्रोफोन परवानगी</div>
+    <div class="diag-row"><span class="diag-badge" id="d-browser">…</span> ब्राउझर</div>
+  </div>
+
+  <!-- ── MAIN UI ─────────────────────────── -->
+  <div id="main-ui">
+
+    <div class="alert-banner warn" id="warn-banner">
+      <span>⚠️</span><span id="warn-msg"></span>
+    </div>
+    <div class="alert-banner err" id="err-banner">
+      <span>🚫</span><span id="err-msg"></span>
+    </div>
+
+    <div class="mic-bar">
+      <button class="mic-btn" id="mic-btn" aria-label="बोलणे सुरू करा">
+        <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24"
+             fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+          <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+          <line x1="12" y1="19" x2="12" y2="23"/>
+          <line x1="8" y1="23" x2="16" y2="23"/>
+        </svg>
+      </button>
+      <div class="status-block">
+        <div class="status-pill" id="status-pill">
+          <span class="dot" id="status-dot"></span>
+          <span id="status-text">बोलण्यासाठी बटण दाबा</span>
+        </div>
+        <div class="mic-hint">मराठीत बोला · आपोआप मजकूर होईल</div>
+      </div>
+    </div>
+
+    <div class="text-wrap">
+      <div class="text-toolbar">
+        <span class="tbar-label">📝 मजकूर</span>
+        <div class="tbar-btns">
+          <button class="tbtn" id="copy-btn">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            कॉपी
+          </button>
+          <button class="tbtn danger" id="clear-btn">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+            साफ
+          </button>
+        </div>
+      </div>
+
+      <div id="output-text" contenteditable="true" spellcheck="false"
+           role="region" aria-live="polite" aria-label="ओळखलेला मजकूर"></div>
+      <div id="interim-text" aria-live="polite"></div>
+    </div>
+
+    <div class="font-bar">
+      <span class="font-bar-label">अक्षर:</span>
+      <button class="fs-btn" data-size="18">अ–</button>
+      <button class="fs-btn active" data-size="22">अ</button>
+      <button class="fs-btn" data-size="28">अ+</button>
+      <button class="fs-btn" data-size="36">अ++</button>
+      <div class="fs-slider-row">
+        <input type="range" id="fs-slider" min="14" max="48" value="22" step="1" aria-label="अक्षर आकार">
+        <span class="fs-val" id="fs-val">22</span>
+      </div>
+    </div>
+
+  </div><!-- #main-ui -->
+
+</div><!-- .app -->
+
+<script>
+/* ── DIAGNOSTICS ─────────────────────────────────────────────── */
+const isSecure  = location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+const hasAPI    = !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+const hasMedia  = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+const ua        = navigator.userAgent;
+const isChrome  = /Chrome\//.test(ua) && !/Edg\//.test(ua);
+const isEdge    = /Edg\//.test(ua);
+const isSafari  = /Safari\//.test(ua) && !/Chrome/.test(ua);
+const browserName = isChrome ? 'Chrome ✓' : isEdge ? 'Edge ✓' : isSafari ? 'Safari (iOS)' : 'अज्ञात ब्राउझर';
+
+function badge(id, text, cls) {
+  const el = document.getElementById(id);
+  el.textContent = text; el.className = 'diag-badge ' + cls;
+}
+
+badge('d-https',   isSecure ? 'OK' : 'WARN',  isSecure ? 'ok' : 'warn');
+badge('d-api',     hasAPI   ? 'OK' : 'FAIL',  hasAPI   ? 'ok' : 'fail');
+badge('d-media',   hasMedia ? 'OK' : 'FAIL',  hasMedia ? 'ok' : 'fail');
+badge('d-mic',     '…',                        'warn');
+badge('d-browser', isChrome || isEdge ? 'OK' : 'WARN', isChrome || isEdge ? 'ok' : 'warn');
+document.getElementById('d-browser').textContent = browserName;
+
+// Check existing mic permission
+if (navigator.permissions) {
+  navigator.permissions.query({ name: 'microphone' }).then(r => {
+    badge('d-mic',
+      r.state === 'granted'  ? 'OK' :
+      r.state === 'denied'   ? 'FAIL' : 'PENDING',
+      r.state === 'granted'  ? 'ok' :
+      r.state === 'denied'   ? 'fail' : 'warn'
+    );
+  }).catch(() => badge('d-mic', '?', 'warn'));
+}
+
+/* Diagnostics toggle */
+const diagToggle = document.getElementById('diag-toggle');
+const diagStrip  = document.getElementById('diag-strip');
+diagToggle.addEventListener('click', () => {
+  const open = diagStrip.classList.toggle('show');
+  diagToggle.setAttribute('aria-expanded', open);
+  diagToggle.textContent = open ? '⚙️ तपासणी माहिती लपवा' : '⚙️ तपासणी माहिती पहा';
+});
+
+/* ── PERMISSION FLOW ─────────────────────────────────────────── */
+const permScreen  = document.getElementById('perm-screen');
+const permBtn     = document.getElementById('perm-btn');
+const permErr     = document.getElementById('perm-error');
+const mainUI      = document.getElementById('main-ui');
+
+// Pre-flight checks
+if (!isSecure) {
+  showPermError('⚠️ हे पेज HTTP वर उघडले आहे. मायक्रोफोन फक्त HTTPS किंवा localhost वर काम करतो. कृपया Netlify, GitHub Pages किंवा इतर HTTPS होस्टवर ठेवा.');
+}
+if (!hasAPI) {
+  showPermError('🚫 आपला ब्राउझर Speech Recognition ला आधार देत नाही. कृपया Google Chrome किंवा Microsoft Edge वापरा.');
+  permBtn.disabled = true;
+}
+
+function showPermError(msg) {
+  permErr.style.display = 'block';
+  permErr.textContent = msg;
+  permBtn.disabled = true;
+}
+
+// Keep track of the live MediaStream so we can reuse it
+let activeStream = null;
+
+permBtn.addEventListener('click', async () => {
+  permBtn.textContent = '⏳ परवानगी मागत आहे…';
+  permBtn.disabled = true;
+  permErr.style.display = 'none';
+
+  try {
+    // ── KEY FIX: explicitly call getUserMedia first ──
+    // This forces the browser permission dialog to show,
+    // and keeps the stream alive so SpeechRecognition can use the same mic.
+    activeStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+
+    badge('d-mic', 'OK', 'ok');
+    // Hide permission screen, show main UI
+    permScreen.style.display = 'none';
+    diagToggle.style.display = 'none';
+    diagStrip.classList.remove('show');
+    mainUI.classList.add('show');
+
+    // Warn if not Chrome/Edge
+    if (!isChrome && !isEdge) {
+      showWarn('सर्वोत्तम अनुभवासाठी Google Chrome किंवा Edge वापरा. ' + browserName + ' वर काही मर्यादा असू शकतात.');
+    }
+    if (!isSecure) {
+      showWarn('HTTPS नाही — काही Chrome आवृत्त्यांमध्ये भाषण ओळख काम करणार नाही. HTTPS होस्टवर ठेवा.');
+    }
+
+    initRecog();
+
+  } catch (err) {
+    badge('d-mic', 'FAIL', 'fail');
+    permBtn.disabled = false;
+    permBtn.textContent = '🎙️ पुन्हा प्रयत्न करा';
+
+    let msg = '';
+    if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+      msg = '🚫 परवानगी नाकारली गेली.\n\n'
+          + 'Chrome मध्ये: ॲड्रेस बारच्या डाव्या बाजूला 🔒 चिन्हावर टॅप करा → Site settings → Microphone → Allow.\n\n'
+          + 'नंतर पेज रिफ्रेश करा आणि पुन्हा प्रयत्न करा.';
+    } else if (err.name === 'NotFoundError') {
+      msg = '🎙️ मायक्रोफोन सापडला नाही. आपल्या फोनमध्ये मायक्रोफोन आहे का ते तपासा.';
+    } else if (err.name === 'NotReadableError') {
+      msg = '⚠️ मायक्रोफोन दुसऱ्या ॲपने वापरात आहे. इतर ॲप बंद करा आणि पुन्हा प्रयत्न करा.';
+    } else if (err.name === 'SecurityError') {
+      msg = '🔒 सुरक्षा त्रुटी. HTTPS वर होस्ट केल्यास हे सुटेल. (फाइल:// URL वर काम होत नाही.)';
+    } else {
+      msg = '⚠️ अज्ञात त्रुटी: ' + err.name + ' — ' + err.message;
+    }
+    permErr.style.display = 'block';
+    permErr.textContent = msg;
+  }
+});
+
+/* ── SPEECH RECOGNITION ─────────────────────────────────────── */
+const micBtn  = document.getElementById('mic-btn');
+const sPill   = document.getElementById('status-pill');
+const sTxt    = document.getElementById('status-text');
+const sDot    = document.getElementById('status-dot');
+const outEl   = document.getElementById('output-text');
+const intEl   = document.getElementById('interim-text');
+const copyBtn = document.getElementById('copy-btn');
+const clearBtn= document.getElementById('clear-btn');
+const fsSlider= document.getElementById('fs-slider');
+const fsValEl = document.getElementById('fs-val');
+const fsBtns  = document.querySelectorAll('.fs-btn');
+
+const warnBanner = document.getElementById('warn-banner');
+const warnMsg    = document.getElementById('warn-msg');
+const errBanner  = document.getElementById('err-banner');
+const errMsg     = document.getElementById('err-msg');
+
+function showWarn(msg) { warnMsg.textContent = msg; warnBanner.classList.add('show'); }
+function showErr(msg)  { errMsg.textContent  = msg; errBanner.classList.add('show'); }
+function hideAlerts()  { warnBanner.classList.remove('show'); errBanner.classList.remove('show'); }
+
+let recog = null, isRec = false, finalText = '', autoRestart = false;
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+function initRecog() {
+  if (!SR) { showErr('Speech Recognition API उपलब्ध नाही.'); micBtn.disabled = true; return; }
+
+  recog = new SR();
+  recog.lang = 'mr-IN';
+  recog.continuous = true;
+  recog.interimResults = true;
+  recog.maxAlternatives = 1;
+
+  recog.onstart = () => {
+    isRec = true;
+    hideAlerts();
+    micBtn.classList.add('recording');
+    micBtn.setAttribute('aria-label', 'बोलणे थांबवा');
+    setStatus('ऐकत आहे… बोला', 'active');
+  };
+
+  recog.onresult = (e) => {
+    let interim = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      const t = e.results[i][0].transcript;
+      if (e.results[i].isFinal) finalText += t + ' ';
+      else interim += t;
+    }
+    outEl.textContent = finalText;
+    intEl.textContent = interim ? '…' + interim : '';
+    outEl.scrollTop = outEl.scrollHeight;
+  };
+
+  recog.onerror = (e) => {
+    console.warn('SR error:', e.error, e.message);
+    if (e.error === 'no-speech') {
+      setStatus('बोलले नाही — पुन्हा प्रयत्न करा', 'warn');
+      return;
+    }
+    if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+      showErr('मायक्रोफोन परवानगी रद्द झाली. पेज रिफ्रेश करा आणि परत Allow करा.');
+      stopRec(); return;
+    }
+    if (e.error === 'network') {
+      showWarn('नेटवर्क त्रुटी — भाषण ओळखण्यासाठी इंटरनेट आवश्यक आहे. कनेक्शन तपासा.');
+      stopRec(); return;
+    }
+    if (e.error === 'audio-capture') {
+      showErr('मायक्रोफोन उपलब्ध नाही. दुसरे ॲप मायक्रोफोन वापरत असल्यास ते बंद करा.');
+      stopRec(); return;
+    }
+    showWarn('त्रुटी आली: ' + e.error + '. पुन्हा प्रयत्न करा.');
+    stopRec();
+  };
+
+  recog.onend = () => {
+    intEl.textContent = '';
+    if (autoRestart && isRec) {
+      setTimeout(() => { try { recog.start(); } catch(e) {} }, 200);
+      return;
+    }
+    stopRec();
+  };
+}
+
+function startRec() {
+  if (!recog) return;
+  hideAlerts();
+  finalText = outEl.textContent || '';
+  if (finalText && !finalText.endsWith(' ')) finalText += ' ';
+  autoRestart = true;
+  try { recog.start(); } catch(e) {
+    // Already started — ignore
+  }
+}
+
+function stopRec() {
+  autoRestart = false; isRec = false;
+  micBtn.classList.remove('recording');
+  micBtn.setAttribute('aria-label', 'बोलणे सुरू करा');
+  intEl.textContent = '';
+  const hasText = outEl.textContent.trim();
+  setStatus(hasText ? 'झाले! मजकूर तयार ✓' : 'बोलण्यासाठी बटण दाबा', hasText ? 'success' : '');
+  if (hasText) setTimeout(() => setStatus('बोलण्यासाठी बटण दाबा', ''), 3000);
+  try { recog.stop(); } catch(e) {}
+}
+
+function setStatus(msg, state) {
+  sTxt.textContent = msg;
+  sDot.className  = 'dot' + (state === 'active' ? ' blink' : '');
+  sPill.className = 'status-pill' + (state ? ' ' + state : '');
+}
+
+micBtn.addEventListener('click', () => isRec ? stopRec() : startRec());
+
+copyBtn.addEventListener('click', () => {
+  const t = outEl.textContent.trim();
+  if (!t) return;
+  navigator.clipboard.writeText(t).then(() => {
+    const orig = copyBtn.innerHTML;
+    copyBtn.textContent = '✓ झाले';
+    setTimeout(() => { copyBtn.innerHTML = orig; }, 2000);
+  });
+});
+
+clearBtn.addEventListener('click', () => {
+  finalText = ''; outEl.textContent = ''; intEl.textContent = '';
+  hideAlerts();
+  setStatus('बोलण्यासाठी बटण दाबा', '');
+});
+
+function applyFS(px) {
+  document.documentElement.style.setProperty('--fs', px + 'px');
+  fsValEl.textContent = px;
+  fsSlider.value = px;
+  fsBtns.forEach(b => b.classList.toggle('active', +b.dataset.size === px));
+}
+fsBtns.forEach(b => b.addEventListener('click', () => applyFS(+b.dataset.size)));
+fsSlider.addEventListener('input', () => applyFS(+fsSlider.value));
+
+/* Portrait lock */
+async function lockPortrait() {
+  try {
+    if (screen.orientation && screen.orientation.lock)
+      await screen.orientation.lock('portrait');
+  } catch(e) {}
+}
+lockPortrait();
+</script>
+</body>
+</html>
