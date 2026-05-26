@@ -72,7 +72,7 @@ html, body {
 }
 .hdr-title { font-size: 20px; font-weight: 700; color: var(--accent-deep); line-height: 1; }
 .hdr-sub   { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
-.om        { font-size: 26px; color: var(--accent); opacity: 0.65; user-select: none; }
+.om        { user-select: none; line-height: 0; opacity: 0.88; flex-shrink: 0; }
 
 /* PERMISSION SCREEN — shown before mic is granted */
 #perm-screen {
@@ -299,7 +299,42 @@ html, body {
       <div class="hdr-title">मराठी वाचा</div>
       <div class="hdr-sub">बोलून टाइप करा · Speech to Text</div>
     </div>
-    <div class="om" aria-hidden="true">ॐ</div>
+    <div class="om" aria-hidden="true">
+      <svg width="48" height="52" viewBox="0 0 48 52" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <!-- Outer decorative ring -->
+        <circle cx="24" cy="30" r="20" fill="rgba(193,122,46,0.08)" stroke="#C17A2E" stroke-width="1.4"/>
+        <circle cx="24" cy="30" r="15.5" fill="none" stroke="#8B5319" stroke-width="0.7" stroke-dasharray="2.2,2" opacity="0.45"/>
+
+        <!-- Sword 1: bottom-left to top-right -->
+        <line x1="9"  y1="49" x2="34" y2="13" stroke="#8B5319" stroke-width="2"   stroke-linecap="round"/>
+        <line x1="6"  y1="44" x2="14" y2="48" stroke="#C17A2E" stroke-width="1.8" stroke-linecap="round"/>
+        <circle cx="7.5" cy="50" r="2" fill="#8B5319"/>
+
+        <!-- Sword 2: bottom-right to top-left -->
+        <line x1="39" y1="49" x2="14" y2="13" stroke="#8B5319" stroke-width="2"   stroke-linecap="round"/>
+        <line x1="42" y1="44" x2="34" y2="48" stroke="#C17A2E" stroke-width="1.8" stroke-linecap="round"/>
+        <circle cx="40.5" cy="50" r="2" fill="#8B5319"/>
+
+        <!-- Shield (Dhaal) -->
+        <path d="M24 20 L36 25 L36 36 Q36 46 24 51 Q12 46 12 36 L12 25 Z"
+              fill="#FFFBF4" stroke="#C17A2E" stroke-width="1.8"/>
+        <!-- Shield inner border -->
+        <path d="M24 23.5 L32 27 L32 35 Q32 41.5 24 45.5 Q16 41.5 16 35 L16 27 Z"
+              fill="none" stroke="#8B5319" stroke-width="0.85" opacity="0.5"/>
+        <!-- Shield centre ornament -->
+        <circle cx="24" cy="34" r="2.8" fill="none" stroke="#C17A2E" stroke-width="1.1"/>
+        <circle cx="24" cy="34" r="1.1" fill="#C17A2E"/>
+        <line x1="24" y1="30.8" x2="24" y2="27.5" stroke="#C17A2E" stroke-width="1" stroke-linecap="round" opacity="0.6"/>
+
+        <!-- Crown (Mukut) — three peaks, filled saffron -->
+        <path d="M14 22 L16.5 15 L20.5 18.5 L24 9.5 L27.5 18.5 L31.5 15 L34 22 Z"
+              fill="rgba(193,122,46,0.18)" stroke="#C17A2E" stroke-width="1.7" stroke-linejoin="round"/>
+        <!-- Crown gems -->
+        <circle cx="16.5" cy="15"  r="1.5" fill="#C17A2E"/>
+        <circle cx="24"   cy="9.5" r="2"   fill="#C17A2E"/>
+        <circle cx="31.5" cy="15"  r="1.5" fill="#C17A2E"/>
+      </svg>
+    </div>
   </header>
 
   <!-- ── PERMISSION SCREEN ───────────────── -->
@@ -369,6 +404,9 @@ html, body {
           <button class="tbtn" id="copy-btn">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
             कॉपी
+          </button>
+          <button class="tbtn" id="undo-btn" disabled>
+            ↩ मागे
           </button>
           <button class="tbtn danger" id="clear-btn">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
@@ -526,6 +564,7 @@ const sDot    = document.getElementById('status-dot');
 const outEl   = document.getElementById('output-text');
 const intEl   = document.getElementById('interim-text');
 const copyBtn = document.getElementById('copy-btn');
+const undoBtn = document.getElementById('undo-btn');
 const clearBtn= document.getElementById('clear-btn');
 const fsSlider= document.getElementById('fs-slider');
 const fsValEl = document.getElementById('fs-val');
@@ -540,7 +579,7 @@ function showWarn(msg) { warnMsg.textContent = msg; warnBanner.classList.add('sh
 function showErr(msg)  { errMsg.textContent  = msg; errBanner.classList.add('show'); }
 function hideAlerts()  { warnBanner.classList.remove('show'); errBanner.classList.remove('show'); }
 
-let recog = null, isRec = false, finalText = '', autoRestart = false;
+let recog = null, isRec = false, finalText = '', autoRestart = false, undoStack = [];
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 
 function initRecog() {
@@ -564,8 +603,13 @@ function initRecog() {
     let interim = '';
     for (let i = e.resultIndex; i < e.results.length; i++) {
       const t = e.results[i][0].transcript;
-      if (e.results[i].isFinal) finalText += t + ' ';
-      else interim += t;
+      if (e.results[i].isFinal) {
+        undoStack.push(finalText);
+        finalText += t + ' ';
+        undoBtn.disabled = false;
+      } else {
+        interim += t;
+      }
     }
     outEl.textContent = finalText;
     intEl.textContent = interim ? '…' + interim : '';
@@ -644,10 +688,24 @@ copyBtn.addEventListener('click', () => {
   });
 });
 
+undoBtn.addEventListener('click', () => {
+  if (undoStack.length === 0) return;
+  finalText = undoStack.pop();
+  outEl.textContent = finalText;
+  undoBtn.disabled = undoStack.length === 0;
+});
+
 clearBtn.addEventListener('click', () => {
   finalText = ''; outEl.textContent = ''; intEl.textContent = '';
+  undoStack = []; undoBtn.disabled = true;
   hideAlerts();
   setStatus('बोलण्यासाठी बटण दाबा', '');
+});
+
+// Manual edits via contenteditable invalidate the undo stack
+outEl.addEventListener('input', () => {
+  finalText = outEl.textContent || '';
+  undoStack = []; undoBtn.disabled = true;
 });
 
 function applyFS(px) {
