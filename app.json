@@ -14,8 +14,14 @@
         "NSSpeechRecognitionUsageDescription": "बोललेले शब्द मजकुरात रूपांतरित करण्यासाठी भाषण ओळख वापरली जाते."
       }
     },
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#FDF6EC"
+    },
     "android": {
       "package": "com.samvad.marathivacha",
+      "versionCode": 1,
       "adaptiveIcon": {
         "backgroundColor": "#8B5319",
         "foregroundImage": "./assets/android-icon-foreground.png",

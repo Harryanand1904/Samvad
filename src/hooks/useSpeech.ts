@@ -6,6 +6,7 @@ import {
 } from 'expo-speech-recognition';
 
 export type SpeechStatus = 'idle' | 'recording' | 'error';
+export type SpeechLang = 'mr-IN' | 'en-IN';
 
 export interface SpeechState {
   finalText: string;
@@ -13,6 +14,7 @@ export interface SpeechState {
   status: SpeechStatus;
   errorMessage: string | null;
   canUndo: boolean;
+  currentLang: SpeechLang;
 }
 
 export interface SpeechControls {
@@ -21,6 +23,24 @@ export interface SpeechControls {
   clear: () => void;
   appendText: (text: string) => void;
   undoLastSegment: () => void;
+  setLang: (lang: SpeechLang) => void;
+}
+
+const QUESTION_WORDS = ['का', 'कसे', 'कुठे', 'काय', 'कोण', 'केव्हा', 'कधी'];
+const EXCLAMATION_WORDS = ['अरे', 'वा'];
+
+function applyPunctuation(transcript: string, lang: SpeechLang): string {
+  const trimmed = transcript.trimEnd();
+  if (!trimmed) return trimmed;
+  if (lang !== 'mr-IN') {
+    if (/[.?!]$/.test(trimmed)) return trimmed;
+    return trimmed + '.';
+  }
+  if (/[।.?!,]$/.test(trimmed)) return trimmed;
+  const words = trimmed.split(/\s+/);
+  if (words.some(w => QUESTION_WORDS.includes(w))) return trimmed + '?';
+  if (words.length <= 3 && EXCLAMATION_WORDS.some(w => trimmed.includes(w))) return trimmed + '!';
+  return trimmed + '.';
 }
 
 export function useSpeech(): SpeechState & SpeechControls {
@@ -29,14 +49,13 @@ export function useSpeech(): SpeechState & SpeechControls {
   const [status, setStatus] = useState<SpeechStatus>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [canUndo, setCanUndo] = useState(false);
+  const [currentLang, setCurrentLangState] = useState<SpeechLang>('mr-IN');
 
   const accumulatedRef = useRef('');
-  // Stack of previous accumulatedRef values — enables undo-last-segment
   const undoStackRef = useRef<string[]>([]);
-  // Drives auto-restart: true means the user wants recognition active
   const wantsActiveRef = useRef(false);
-  // Tracked so it can be cancelled on stop(), error, or unmount
   const restartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const currentLangRef = useRef<SpeechLang>('mr-IN');
 
   const clearRestartTimer = useCallback(() => {
     if (restartTimerRef.current !== null) {
@@ -56,7 +75,7 @@ export function useSpeech(): SpeechState & SpeechControls {
       restartTimerRef.current = setTimeout(() => {
         restartTimerRef.current = null;
         if (wantsActiveRef.current) {
-          ExpoSpeechRecognitionModule.start({ lang: 'mr-IN', interimResults: true, continuous: true });
+          ExpoSpeechRecognitionModule.start({ lang: currentLangRef.current, interimResults: true, continuous: true });
         }
       }, 150);
     } else {
@@ -68,7 +87,8 @@ export function useSpeech(): SpeechState & SpeechControls {
     const transcript = event.results[0]?.transcript ?? '';
     if (event.isFinal) {
       undoStackRef.current = [...undoStackRef.current, accumulatedRef.current];
-      const appended = accumulatedRef.current + transcript + ' ';
+      const punctuated = applyPunctuation(transcript, currentLangRef.current);
+      const appended = accumulatedRef.current + punctuated + ' ';
       accumulatedRef.current = appended;
       setFinalText(appended);
       setCanUndo(true);
@@ -79,7 +99,6 @@ export function useSpeech(): SpeechState & SpeechControls {
   });
 
   useSpeechRecognitionEvent('error', (event) => {
-    // no-speech is non-fatal; auto-restart will handle it
     if (event.error === 'no-speech') {
       setInterimText('');
       return;
@@ -98,7 +117,6 @@ export function useSpeech(): SpeechState & SpeechControls {
     setErrorMessage(msgs[event.error] ?? `त्रुटी: ${event.error}`);
   });
 
-  // Security: stop mic when app goes to background — prevents recording without user awareness
   useEffect(() => {
     const handleAppStateChange = (nextState: AppStateStatus) => {
       if (nextState !== 'active' && wantsActiveRef.current) {
@@ -113,7 +131,6 @@ export function useSpeech(): SpeechState & SpeechControls {
     return () => subscription.remove();
   }, [clearRestartTimer]);
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       wantsActiveRef.current = false;
@@ -131,7 +148,7 @@ export function useSpeech(): SpeechState & SpeechControls {
     }
     setErrorMessage(null);
     wantsActiveRef.current = true;
-    ExpoSpeechRecognitionModule.start({ lang: 'mr-IN', interimResults: true, continuous: true });
+    ExpoSpeechRecognitionModule.start({ lang: currentLangRef.current, interimResults: true, continuous: true });
   }, []);
 
   const stop = useCallback(() => {
@@ -167,5 +184,14 @@ export function useSpeech(): SpeechState & SpeechControls {
     setCanUndo(stack.length - 1 > 0);
   }, []);
 
-  return { finalText, interimText, status, errorMessage, canUndo, start, stop, clear, appendText, undoLastSegment };
+  const setLang = useCallback((lang: SpeechLang) => {
+    currentLangRef.current = lang;
+    setCurrentLangState(lang);
+    // If recording, stop — the 'end' handler will auto-restart with new lang
+    if (wantsActiveRef.current) {
+      ExpoSpeechRecognitionModule.stop();
+    }
+  }, []);
+
+  return { finalText, interimText, status, errorMessage, canUndo, currentLang, start, stop, clear, appendText, undoLastSegment, setLang };
 }
